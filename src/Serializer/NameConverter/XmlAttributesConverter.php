@@ -40,6 +40,7 @@ class XmlAttributesConverter implements NameConverterInterface
         if (0 === strncmp($this->attributePrefix, $propertyName, \strlen($this->attributePrefix))) {
             $propertyName = '@'.substr($propertyName, \strlen($this->attributePrefix));
         }
+
         return $this->decorator->normalize($propertyName);
     }
 
@@ -57,6 +58,7 @@ class XmlAttributesConverter implements NameConverterInterface
         if (0 === strpos($propertyName, '@')) {
             $propertyName = $this->attributePrefix.substr($propertyName, 1);
         }
+
         return $this->decorator->denormalize($propertyName);
     }
 }

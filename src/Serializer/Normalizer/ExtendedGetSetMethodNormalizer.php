@@ -18,8 +18,8 @@ class ExtendedGetSetMethodNormalizer extends GetSetMethodNormalizer
      */
     protected function setAttributeValue(object $object, string $attribute, $value, string $format = null, array $context = [])
     {
-        $setter = 'set' . ucfirst($attribute);
-        $key = \get_class($object) . ':' . $setter;
+        $setter = 'set'.ucfirst($attribute);
+        $key = \get_class($object).':'.$setter;
         if (!isset(self::$setterAccessibleCache[$key])) {
             self::$setterAccessibleCache[$key] = \is_callable([
                     $object,
@@ -32,12 +32,12 @@ class ExtendedGetSetMethodNormalizer extends GetSetMethodNormalizer
             foreach ((new \ReflectionMethod($object, $setter))->getParameters() as $param) {
                 /** @var \ReflectionNamedType $type */
                 $type = $param->getType();
-                if ($type !== null) {
+                if (null !== $type) {
                     //set null if empty
-                    if (empty($value) && $type->allowsNull() && $type->getName() !== 'string') {
+                    if (empty($value) && $type->allowsNull() && 'string' !== $type->getName()) {
                         $value = null;
                     }
-                    if (!empty($value) && $type->getName() === 'float') {
+                    if (!empty($value) && 'float' === $type->getName()) {
                         $value = \str_replace(',', '.', $value);
                     }
                 }

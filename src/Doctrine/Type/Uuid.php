@@ -19,7 +19,7 @@ class Uuid extends Type
     public const NAME = 'uuid';
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getSQLDeclaration(array $fieldDeclaration, AbstractPlatform $platform): string
     {
@@ -27,7 +27,7 @@ class Uuid extends Type
     }
 
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function getName(): string
     {
@@ -35,10 +35,7 @@ class Uuid extends Type
     }
 
     /**
-     * @param mixed            $value
-     * @param AbstractPlatform $platform
-     *
-     * @return string|null
+     * @param mixed $value
      *
      * @throws ConversionException
      */
@@ -56,10 +53,7 @@ class Uuid extends Type
     }
 
     /**
-     * @param mixed            $value
-     * @param AbstractPlatform $platform
-     *
-     * @return string|null
+     * @param mixed $value
      *
      * @throws ConversionException
      */

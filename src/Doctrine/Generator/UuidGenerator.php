@@ -16,7 +16,7 @@ use Doctrine\ORM\Id\AbstractIdGenerator;
 class UuidGenerator extends AbstractIdGenerator
 {
     /**
-     * @inheritDoc
+     * {@inheritdoc}
      */
     public function generate(EntityManager $em, $entity)
     {

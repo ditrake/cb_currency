@@ -13,9 +13,7 @@ use App\Entity\Currency;
 use App\Exception\DailyException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
-use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
@@ -49,10 +47,6 @@ class CentralBankService implements ProviderInterface
 
     /**
      * CentralBankService constructor.
-     * @param string $apiUrl
-     * @param HttpClientInterface $httpClient
-     * @param SerializerInterface $serializer
-     * @param EntityManagerInterface $em
      */
     public function __construct(string $apiUrl, HttpClientInterface $httpClient, SerializerInterface $serializer, EntityManagerInterface $em)
     {
@@ -63,20 +57,19 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param string|null $date
-     * @param string|null $currency
      * @return Currency|array|null
+     *
      * @throws DailyException
      */
     public function daily(?string $date = null, ?string $currency = null)
     {
-        if ($date === null) {
+        if (null === $date) {
             $datetime = new \DateTime();
         } else {
             $datetime = \DateTime::createFromFormat('d/m/Y', $date);
         }
         $datetime->setTime(0, 0, 0);
-        if ($datetime === false) {
+        if (false === $datetime) {
             throw new DailyException(\sprintf('Date %s is wrong format, need %s', $date, \DateTime::ATOM));
         }
 
@@ -94,8 +87,6 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param \DateTime $date
-     * @return bool
      * @throws \Exception
      */
     private function checkDate(\DateTime $date): bool
@@ -104,13 +95,11 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param string $baseUrl
      * @param mixed ...$path
-     * @return string
      */
     private function makePathUrl(string $baseUrl, ...$path): string
     {
-        $path = \array_map(fn(&$item) => \trim((string)$item, '/'), $path);
+        $path = \array_map(fn (&$item) => \trim((string) $item, '/'), $path);
         $fullPath = \implode('/', $path);
         $fullPath = str_replace($baseUrl, '', $fullPath);
 
@@ -118,10 +107,6 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param string $url
-     * @param array $options
-     * @param string $method
-     * @return ResponseInterface|null
      * @throws DailyException
      */
     private function makeRequest(string $url, array $options = [], string $method = 'GET'): ?ResponseInterface
@@ -134,8 +119,6 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param ResponseInterface $response
-     * @return string
      * @throws DailyException
      */
     private function getContent(ResponseInterface $response): string
@@ -146,7 +129,7 @@ class CentralBankService implements ProviderInterface
             throw new DailyException($e->getMessage());
         }
 
-        if ($code === Response::HTTP_OK) {
+        if (Response::HTTP_OK === $code) {
             try {
                 return $response->getContent();
             } catch (ClientExceptionInterface $e) {
@@ -162,18 +145,16 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param \DateTime $dateTime
      * @return bool
      */
     private function checkExist(\DateTime $dateTime)
     {
         $repo = $this->em->getRepository(Currency::class);
+
         return $repo->checkExist($dateTime);
     }
 
     /**
-     * @param \DateTime $dateTime
-     * @return ValCurs|null
      * @throws DailyException
      */
     private function request(\DateTime $dateTime): ?ValCurs
@@ -187,7 +168,7 @@ class CentralBankService implements ProviderInterface
             $answer = $this->serializer->deserialize($content, ValCurs::class, 'xml', [
                 AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
             ]);
-            if (($answer !== null) && $answer instanceof ValCurs) {
+            if ((null !== $answer) && $answer instanceof ValCurs) {
                 return $answer;
             }
         }
@@ -196,9 +177,7 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param ValCurs $curs
      * @param string|null $currency
-     * @return array
      */
     private function setExist(ValCurs $curs, ?string $currencyCode = null): array
     {
@@ -215,7 +194,7 @@ class CentralBankService implements ProviderInterface
             $currency->setNominal($valute->getNominal());
             $currency->setExtId($valute->getAttrId());
             $currency->setCreatedAt($date);
-            if ($currency !== null) {
+            if (null !== $currency) {
                 if ($valute->getCharCode() === $currencyCode) {
                     $result[] = $currency;
                 }
@@ -231,16 +210,13 @@ class CentralBankService implements ProviderInterface
     }
 
     /**
-     * @param \DateTime $dateTime
-     * @param string|null $currencyCode
      * @return Currency|array|null
      */
     private function getExist(\DateTime $dateTime, ?string $currencyCode = null)
     {
         $repo = $this->em->getRepository(Currency::class);
 
-        if ($currencyCode !== null)
-        {
+        if (null !== $currencyCode) {
             return $repo->findByCurrencyCodeOnDate($currencyCode, $dateTime);
         }
 
