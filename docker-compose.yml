@@ -11,6 +11,16 @@ services:
     volumes:
       - .:/var/www/app:cached
 
+  database:
+    image: postgres:11-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - database:/var/lib/postgresql/data:cached
+      - ./docker/dev/database:/docker-entrypoint-initdb.d
+    env_file:
+      - .env.local
+
   webapp:
     build:
       context: .

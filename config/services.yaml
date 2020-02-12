@@ -25,6 +25,18 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+    App\Serializer\Normalizer\ExtendedGetSetMethodNormalizer:
+        class: App\Serializer\Normalizer\ExtendedGetSetMethodNormalizer
+        arguments:
+            $nameConverter: '@serializer.name_converter.camel_case_to_snake_case'
+        public: false
+        tags: ['serializer.normalizer']
+
+    App\Serializer\NameConverter\XmlAttributesConverter:
+        decorates: 'serializer.name_converter.camel_case_to_snake_case'
+        arguments:
+            - '@App\Serializer\NameConverter\XmlAttributesConverter.inner'
+
     App\Service\ProviderInterface:
         class: App\Service\CentralBankService
         public: true

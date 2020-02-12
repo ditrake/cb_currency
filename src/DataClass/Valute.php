@@ -32,6 +32,8 @@ class Valute
      */
     private ?int $nominal = null;
 
+    private ?string $attrId = null;
+
     /**
      * @return string|null
      */
@@ -120,5 +122,23 @@ class Valute
     {
         $this->nominal = $nominal;
         return $this;
+    }
+
+    /**
+     * @param string|null $ID
+     * @return self
+     */
+    public function setAttrId(?string $ID): self
+    {
+        $this->attrId = $ID;
+        return $this;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getAttrId(): ?string
+    {
+        return $this->attrId;
     }
 }

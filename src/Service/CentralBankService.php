@@ -8,10 +8,14 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\DataClass\ValCurs;
+use App\DataClass\Valute;
+use App\Entity\Currency;
 use App\Exception\DailyException;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
@@ -38,21 +42,40 @@ class CentralBankService implements ProviderInterface
      * @var string
      */
     private const DAILY = '/XML_daily.asp';
+    /**
+     * @var EntityManagerInterface
+     */
+    private EntityManagerInterface $em;
 
-    public function __construct(string $apiUrl, HttpClientInterface $httpClient, SerializerInterface $serializer)
+    /**
+     * CentralBankService constructor.
+     * @param string $apiUrl
+     * @param HttpClientInterface $httpClient
+     * @param SerializerInterface $serializer
+     * @param EntityManagerInterface $em
+     */
+    public function __construct(string $apiUrl, HttpClientInterface $httpClient, SerializerInterface $serializer, EntityManagerInterface $em)
     {
         $this->httpClient = $httpClient;
         $this->apiUrl = $apiUrl;
         $this->serializer = $serializer;
+        $this->em = $em;
     }
 
-    public function daily(?string $date = null, ?string $currency = null): ?ValCurs
+    /**
+     * @param string|null $date
+     * @param string|null $currency
+     * @return Currency|array|null
+     * @throws DailyException
+     */
+    public function daily(?string $date = null, ?string $currency = null)
     {
         if ($date === null) {
             $datetime = new \DateTime();
         } else {
-            $datetime = \DateTime::createFromFormat(\DateTime::ATOM, $date);
+            $datetime = \DateTime::createFromFormat('d/m/Y', $date);
         }
+        $datetime->setTime(0, 0, 0);
         if ($datetime === false) {
             throw new DailyException(\sprintf('Date %s is wrong format, need %s', $date, \DateTime::ATOM));
         }
@@ -60,49 +83,31 @@ class CentralBankService implements ProviderInterface
         if (!$this->checkDate($datetime)) {
             throw new DailyException(\sprintf('You can\'t look to the future'));
         }
-
-//        $response = $this->makeRequest($this->makePathUrl($this->apiUrl, self::DAILY),
-//            ['query' => ['date_req' => $datetime->format('d/m/Y')]]);
-
-        //$content = $this->getContent($response);
-        $content = <<<EOF
-<?xml version="1.0" encoding="windows-1251"?>
-    <ValCurs>
-        <Valute>
-            <NumCode>036</NumCode>
-            <CharCode>AUD</CharCode>
-            <Nominal>1</Nominal>
-            <Name>asd</Name>
-            <Value>42,6627</Value>
-        </Valute>
-        <Valute>
-            <NumCode>036</NumCode>
-            <CharCode>AUD</CharCode>
-            <Nominal>1</Nominal>
-            <Name>asd</Name>
-            <Value>42,6627</Value>
-        </Valute>
-    </ValCurs>
-EOF;
-
-        if ($content) {
-            $answer = $this->serializer->deserialize($content, ValCurs::class, 'xml', [
-                AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false,
-                AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-            ]);
-            if (($answer !== null) && $answer instanceof ValCurs) {
-                return $answer;
-            }
+        if ($this->checkExist($datetime)) {
+            $result = $this->getExist($datetime, $currency);
+        } else {
+            $response = $this->request($datetime);
+            $result = $this->setExist($response, $currency);
         }
 
-        return null;
+        return $result;
     }
 
+    /**
+     * @param \DateTime $date
+     * @return bool
+     * @throws \Exception
+     */
     private function checkDate(\DateTime $date): bool
     {
         return $date <= new \DateTime();
     }
 
+    /**
+     * @param string $baseUrl
+     * @param mixed ...$path
+     * @return string
+     */
     private function makePathUrl(string $baseUrl, ...$path): string
     {
         $path = \array_map(fn(&$item) => \trim((string)$item, '/'), $path);
@@ -112,6 +117,13 @@ EOF;
         return \sprintf('%s/%s', \rtrim($baseUrl, '/'), $fullPath);
     }
 
+    /**
+     * @param string $url
+     * @param array $options
+     * @param string $method
+     * @return ResponseInterface|null
+     * @throws DailyException
+     */
     private function makeRequest(string $url, array $options = [], string $method = 'GET'): ?ResponseInterface
     {
         try {
@@ -121,6 +133,11 @@ EOF;
         }
     }
 
+    /**
+     * @param ResponseInterface $response
+     * @return string
+     * @throws DailyException
+     */
     private function getContent(ResponseInterface $response): string
     {
         try {
@@ -144,4 +161,89 @@ EOF;
         }
     }
 
+    /**
+     * @param \DateTime $dateTime
+     * @return bool
+     */
+    private function checkExist(\DateTime $dateTime)
+    {
+        $repo = $this->em->getRepository(Currency::class);
+        return $repo->checkExist($dateTime);
+    }
+
+    /**
+     * @param \DateTime $dateTime
+     * @return ValCurs|null
+     * @throws DailyException
+     */
+    private function request(\DateTime $dateTime): ?ValCurs
+    {
+        $response = $this->makeRequest($this->makePathUrl($this->apiUrl, self::DAILY),
+            ['query' => ['date_req' => $dateTime->format('d/m/Y')]]);
+
+        $content = $this->getContent($response);
+
+        if ($content) {
+            $answer = $this->serializer->deserialize($content, ValCurs::class, 'xml', [
+                AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+            ]);
+            if (($answer !== null) && $answer instanceof ValCurs) {
+                return $answer;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param ValCurs $curs
+     * @param string|null $currency
+     * @return array
+     */
+    private function setExist(ValCurs $curs, ?string $currencyCode = null): array
+    {
+        $valutes = $curs->getValute();
+        $date = \DateTime::createFromFormat('d.m.Y', $curs->getAttrDate());
+        $date->setTime(0, 0, 0);
+        $result = [];
+        /** @var Valute $valute */
+        foreach ($valutes as $valute) {
+            $currency = new Currency();
+            $currency->setName($valute->getName());
+            $currency->setValue($valute->getValue());
+            $currency->setCharCode($valute->getCharCode());
+            $currency->setNominal($valute->getNominal());
+            $currency->setExtId($valute->getAttrId());
+            $currency->setCreatedAt($date);
+            if ($currency !== null) {
+                if ($valute->getCharCode() === $currencyCode) {
+                    $result[] = $currency;
+                }
+            } else {
+                $result[] = $currency;
+            }
+
+            $this->em->persist($currency);
+        }
+        $this->em->flush();
+
+        return $result;
+    }
+
+    /**
+     * @param \DateTime $dateTime
+     * @param string|null $currencyCode
+     * @return Currency|array|null
+     */
+    private function getExist(\DateTime $dateTime, ?string $currencyCode = null)
+    {
+        $repo = $this->em->getRepository(Currency::class);
+
+        if ($currencyCode !== null)
+        {
+            return $repo->findByCurrencyCodeOnDate($currencyCode, $dateTime);
+        }
+
+        return $repo->findCurrencyByDate($dateTime);
+    }
 }

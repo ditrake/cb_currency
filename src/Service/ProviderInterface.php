@@ -10,8 +10,14 @@ namespace App\Service;
 
 
 use App\DataClass\ValCurs;
+use App\Entity\Currency;
 
 interface ProviderInterface
 {
-    public function daily(?string $date = null, ?string $currency = null): ?ValCurs;
+    /**
+     * @param string|null $date
+     * @param string|null $currency
+     * @return Currency|array|null
+     */
+    public function daily(?string $date = null, ?string $currency = null);
 }
